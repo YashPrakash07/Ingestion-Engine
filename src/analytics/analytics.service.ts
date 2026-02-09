@@ -88,6 +88,12 @@ export class AnalyticsService {
       vehicleId,
       meterId: mapping.meterId,
       timeRange: '24h',
+      latestSnapshot: {
+        lastReadingAt: vehicleEnd.timestamp,
+        currentSoC: vehicleEnd.soc,
+        currentVoltage: meterEnd.voltage,
+        lastBatteryTemp: vehicleEnd.batteryTemp,
+      },
       metrics: {
         totalEnergyConsumedAc: Number(energyConsumedAc.toFixed(2)),
         totalEnergyDeliveredDc: Number(energyDeliveredDc.toFixed(2)),

@@ -1,115 +1,98 @@
-# High-Scale Energy Ingestion Engine
+# ⚡ Energy Ingestion Engine
 
-This project implements a robust, high-scale ingestion and analytical layer for a Fleet management platform, handling 10,000+ Smart Meters and EV Fleets.
+A high-scale, robust ingestion and analytical layer for an EV Fleet management platform, designed to handle 10,000+ Smart Meters and EV Fleets with millions of daily records.
 
-## Architecture
+## 🚀 Key Features
 
-### 1. Data Ingestion & Polymorphism
+- **High-Performance Ingestion:** Optimized for high-frequency telemetry (60s intervals) from thousands of devices.
+- **Dual-Store Architecture:** Separates "Hot" operational state from "Cold" historical audit trails.
+- **Interactive Documentation:** Built-in Swagger UI for easy API testing and exploration.
+- **Efficiency Analytics:** Calculates loss/efficiency ratios between Grid (AC) and Vehicle (DC) power delivery.
+
+---
+
+## 📖 API Documentation (Swagger)
+
+The project includes interactive API documentation. When the server is running, you can access it here:
+
+👉 **[http://localhost:3000/docs](http://localhost:3000/docs)**
+
+From this UI, you can view all endpoints, see required data schemas, and execute live requests without using a terminal.
+
+---
+
+## 🛠️ Architecture
+
+### 1. Data Ingestion Stream
 
 The system recognizes two distinct types of telemetry arriving every 60 seconds:
 
 - **Meter Stream:** Grid-side AC consumption data.
 - **Vehicle Stream:** Vehicle-side DC delivery and SoC data.
 
-The system uses a common ingestion logic that routes data to two distinct stores based on "temperature".
+### 2. Storage Strategy
 
-### 2. Dual-Store Strategy (Operational vs. Historical)
+To handle ~14.4 million records daily per stream, we use:
 
-To handle 14.4 million records daily per stream, we separate our data strategy:
+- **Operational Store (Hot):** Fast `UPSERT` operations for real-time status lookups (e.g., "What is the current SoC?").
+- **Historical Store (Cold):** Append-only tables using composite indexing on `(id, timestamp)` for rapid time-range analytics.
 
-#### Operational Store (Hot) - `meters_latest`, `vehicles_latest`
+---
 
-- **Purpose:** Fast access for "Current Status".
-- **Implementation:** **UPSERT (Atomic Update)**.
-- **Benefit:** Dashboard queries for "What is my car's current SoC?" are $O(1)$ lookups by ID, avoiding scans of millions of history rows.
+## 💻 Getting Started
 
-#### Historical Store (Cold) - `meter_telemetry`, `vehicle_telemetry`
+### Local Setup (Manual)
 
-- **Purpose:** Append-only audit trail for long-term reporting.
-- **Implementation:** **INSERT (Append-only)**.
-- **Indexing:** Composite indexes on `(vehicleId, timestamp)` and `(meterId, timestamp)`.
-- **Scaling Thesis:** For billions of rows, these tables leverage **PostgreSQL Range Partitioning** (by day or month) to keep index sizes manageable and allow for efficient data retention (dropping old partitions).
+1. **Database**: Create a PostgreSQL database named `energy_ingestion`.
+2. **Environment**: Update `.env` with your database credentials:
+   ```env
+   DATABASE_URL=postgresql://user:password@localhost:5432/energy_ingestion
+   PORT=3000
+   ```
+3. **Run**:
+   ```bash
+   npm install
+   npm run start:dev
+   ```
 
-### 3. Data Correlation & Efficiency Thesis
-
-Energy efficiency is calculated as `Efficiency = DC Delivered / AC Consumed`.
-Since telemetry sources are independent, we use a `vehicle_meter_mapping` table to correlate which EV is drawing from which Meter.
-
-The analytical query for 24-hour performance summary:
-
-- Avoids full table scans by using the composite index on `(id, timestamp)`.
-- Efficiently retrieves the _boundary_ readings (first and last) within the 24h window to calculate total energy deltas.
-- Accuracy: Calculating delta (`max - min`) is more accurate for cumulative energy counters than summing granular changes which may suffer from missing packets.
-
-## Technical Stack
-
-- **Framework:** NestJS (TypeScript)
-- **Database:** PostgreSQL
-- **ORM:** TypeORM
-
-## Getting Started
-
-### Prerequisites
-
-- Docker and Docker Compose
-
-### Run the Application
+### Docker Setup
 
 ```bash
 docker-compose up --build
 ```
 
-### API Endpoints
+---
 
-#### 1. Ingest Meter Data
+## 📊 Analytics Example
 
-`POST /v1/ingestion/meter`
+`GET /v1/analytics/performance/V1`
 
-```json
-{
-  "meterId": "M-123",
-  "kwhConsumedAc": 1050.5,
-  "voltage": 230,
-  "timestamp": "2024-02-09T10:00:00Z"
-}
-```
-
-#### 2. Ingest Vehicle Data
-
-`POST /v1/ingestion/vehicle`
+Returns a 24-hour summary combined with a real-time snapshot of the latest state:
 
 ```json
 {
-  "vehicleId": "V-999",
-  "soc": 45,
-  "kwhDeliveredDc": 850.2,
-  "batteryTemp": 32.5,
-  "timestamp": "2024-02-09T10:00:00Z"
+  "vehicleId": "V1",
+  "meterId": "M1",
+  "timeRange": "24h",
+  "latestSnapshot": {
+    "lastReadingAt": "2026-02-09T13:08:00Z",
+    "currentSoC": 80.5,
+    "currentVoltage": 230,
+    "lastBatteryTemp": 34.2
+  },
+  "metrics": {
+    "totalEnergyConsumedAc": 10.0,
+    "totalEnergyDeliveredDc": 9.0,
+    "efficiencyRatio": 0.9,
+    "avgBatteryTemp": 32.5
+  }
 }
 ```
 
-#### 3. Create Mapping (Correlation)
+---
 
-`POST /v1/ingestion/mapping`
+## 📈 Scalability Roadmap
 
-```json
-{
-  "vehicleId": "V-999",
-  "meterId": "M-123"
-}
-```
-
-#### 4. Analytics Summary
-
-`GET /v1/analytics/performance/V-999`
-
-- Returns a 24-hour summary of AC vs DC energy, efficiency ratio, and average battery temperature.
-
-## Handling Scale (14.4M Records/Day)
-
-To handle this volume, the following optimizations are recommended for production:
-
-1. **Database Partitioning:** Use Postgres Range Partitioning on telemetry tables by `timestamp` (daily).
-2. **Bulk Ingestion:** If streams arrive in batches, use TypeORM `insert()` with multiple values to reduce transaction overhead.
-3. **Read Replicas:** Scale analytical queries by routing them to Postgres Read Replicas.
-4. **Data Retention:** Implement a TTL policy by dropping old partitions to keep the "Cold" store within disk limits.
+- **Range Partitioning**: Telemetry tables should be partitioned by day.
+- **Bulk Loading**: Implement row-batching for high-volume stream processing.
+- **Cache Layer**: Use Redis for the `latest` status lookups to further reduce DB load.
