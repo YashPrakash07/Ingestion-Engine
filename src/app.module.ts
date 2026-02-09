@@ -26,7 +26,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
           VehicleLatest,
           VehicleMeterMapping,
         ],
-        synchronize: true, // In production, use migrations
+        synchronize: configService.get('NODE_ENV') !== 'production', // In production, use migrations
       }),
       inject: [ConfigService],
     }),

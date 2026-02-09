@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { MeterTelemetry } from '../database/entities/meter-telemetry.entity';
 import { VehicleTelemetry } from '../database/entities/vehicle-telemetry.entity';
 import { VehicleMeterMapping } from '../database/entities/vehicle-meter-mapping.entity';
@@ -17,7 +17,8 @@ export class AnalyticsService {
   ) {}
 
   async getPerformanceSummary(vehicleId: string) {
-    const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const endTime = new Date();
+    const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
 
     // 1. Get Mapping
     const mapping = await this.mappingRepo.findOne({ where: { vehicleId } });
@@ -28,12 +29,18 @@ export class AnalyticsService {
     // 2. Query Vehicle Telemetry
     // Efficiently get first and last records in 24h range using index
     const vehicleStart = await this.vehicleTelemetryRepo.findOne({
-      where: { vehicleId, timestamp: MoreThanOrEqual(startTime) },
+      where: {
+        vehicleId,
+        timestamp: Between(startTime, endTime),
+      },
       order: { timestamp: 'ASC' },
     });
 
     const vehicleEnd = await this.vehicleTelemetryRepo.findOne({
-      where: { vehicleId, timestamp: MoreThanOrEqual(startTime) },
+      where: {
+        vehicleId,
+        timestamp: Between(startTime, endTime),
+      },
       order: { timestamp: 'DESC' },
     });
 
@@ -41,14 +48,17 @@ export class AnalyticsService {
       .createQueryBuilder('telemetry')
       .select('AVG(telemetry.batteryTemp)', 'avgTemp')
       .where('telemetry.vehicleId = :vehicleId', { vehicleId })
-      .andWhere('telemetry.timestamp >= :startTime', { startTime })
+      .andWhere('telemetry.timestamp BETWEEN :startTime AND :endTime', {
+        startTime,
+        endTime,
+      })
       .getRawOne<{ avgTemp: string }>();
 
     // 3. Query Meter Telemetry
     const meterStart = await this.meterTelemetryRepo.findOne({
       where: {
         meterId: mapping.meterId,
-        timestamp: MoreThanOrEqual(startTime),
+        timestamp: Between(startTime, endTime),
       },
       order: { timestamp: 'ASC' },
     });
@@ -56,7 +66,7 @@ export class AnalyticsService {
     const meterEnd = await this.meterTelemetryRepo.findOne({
       where: {
         meterId: mapping.meterId,
-        timestamp: MoreThanOrEqual(startTime),
+        timestamp: Between(startTime, endTime),
       },
       order: { timestamp: 'DESC' },
     });
