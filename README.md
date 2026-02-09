@@ -4,10 +4,11 @@ A high-scale, robust ingestion and analytical layer for an EV Fleet management p
 
 ## 🚀 Key Features
 
-- **High-Performance Ingestion:** Optimized for high-frequency telemetry (60s intervals) from thousands of devices.
-- **Dual-Store Architecture:** Separates "Hot" operational state from "Cold" historical audit trails.
-- **Interactive Documentation:** Built-in Swagger UI for easy API testing and exploration.
-- **Efficiency Analytics:** Calculates loss/efficiency ratios between Grid (AC) and Vehicle (DC) power delivery.
+- **High-Performance Ingestion:** Optimized for high-frequency telemetry (60s intervals) with **out-of-order data protection**.
+- **Dual-Store Architecture:** Separates "Hot" operational state from "Cold" historical audit trails using ACID transactions.
+- **Interactive Documentation:** Built-in Swagger UI for easy API testing.
+- **System Reliability:** Automated **Health Checks** (`/health`) and **Global Exception Handling**.
+- **Efficiency Analytics:** Real-time efficiency ratio and status snapshots.
 
 ---
 

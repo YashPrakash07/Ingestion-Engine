@@ -8,6 +8,7 @@ import { VehicleLatest } from './database/entities/vehicle-latest.entity';
 import { VehicleMeterMapping } from './database/entities/vehicle-meter-mapping.entity';
 import { IngestionModule } from './ingestion/ingestion.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     }),
     IngestionModule,
     AnalyticsModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
